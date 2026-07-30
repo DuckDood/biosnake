@@ -1,43 +1,27 @@
-[BITS 16]
-[org 0x7c00]
-; we have 510 bytes to use here (perfect for snake!)
+init:
+	mov ah, 0x0 ; set video mode
+	mov al, 0x13 ; video mode 0x13 (256 color)
+	int 0x10
 
-mov ah, 0x0 ; set video mode
-mov al, 0x13 ; video mode 0x13 (256 color)
-
-int 0x10
-
-
-mov ax,	0xA000 ; offset of base pointer for vga framebuffer
-mov ds,	ax
-
-mov ax,	0x0000
-mov ss,	ax
-mov sp,	0x7c00 ; set up stack pointer and stack offset to be below code (if it overflows it will do bad weird stuff though)
-
-main:
-	mov al,1
-	call clearscr
-
-	mov ax,320/2 - 100/2
-	mov bx,200/2 - 75/2
-	mov cx,100
-	mov dx,75
-	push 3
-	call rect
-	
-	hlt ; wait for refresh (or something)
-	jmp main
+	ret
 
 clearscr: ; clear color is in al register
 	push bp
 	mov bp,sp ; create stack frame
+
+	push bx
+	push cx
+	push dx
 	
 	mov bx,0xA000
 	mov es,bx ; move vga framebuffer offset into extra segment register
 	mov di,0x0 ; clear di (framebuffer starts at 0xA000 + 0 so)
 	mov cx,320*200 ; how many bytes we want to set (the whole buffer)
 	rep stosb ; do it
+
+	pop dx
+	pop cx
+	pop bx
 
 	mov sp,bp
 	pop bp ; destroy stack frame
@@ -110,5 +94,3 @@ rect: ; ax for x, bx for y, cx for width, dx for height, stack for color
 	ret
 
 
-times 510-($-$$) db 0
-db 0x55, 0xaa ; in order to make disk bootable

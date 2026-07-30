@@ -1,8 +1,11 @@
-all: assemble
+all: build/ build/boot.bin
 
-assemble: boot.asm
-	nasm -fbin boot.asm -o boot.bin
+build/:
+	mkdir build/
+
+build/boot.bin: src/boot.asm src/graphics.asm
+	nasm -fbin src/boot.asm -o build/boot.bin
 
 clean:
-	rm boot.bin
+	rm -r build/
 .PHONY: clean
