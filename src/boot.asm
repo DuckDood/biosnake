@@ -4,7 +4,7 @@
 
 %define GAME_WIDTH 20 ; max 255
 %define GAME_HEIGHT 20 ; max 255
-%define GAME_SCALE 1
+%define GAME_SCALE 5
 %define GRID_SPACING 1
 ; AFA0
 
@@ -23,7 +23,7 @@ main:
 
 	call init
 
-	mov al,2
+	mov al,10
 	call clearscr
 
 	;mov ax,320/2 - 100/2
@@ -32,11 +32,74 @@ main:
 	;mov dx,75
 	;push 4
 	;call rect
+
+	mov cx,GAME_SCALE
+	mov dx,GAME_SCALE
+
+	mov ax, 0
+	mov bx, 0
 	
 
+
+.griddrawloopouter:
+	cmp bx, GAME_HEIGHT
+	je .griddrawouterend
+	.griddrawloopinner:
+	cmp ax, GAME_WIDTH
+	je .griddrawloopinnerend
+	; funky loop stuff done, code here (ax is x, bx is y)
+
+	mov dx,GAME_SCALE
+	mov cx,GAME_SCALE
+
+
+	push ax ; x pos
+	push bx ; y pos
 	
+	; cx and dx should have game scale because the rect needs to be that size anyway
 
+	mul cx ; multiplies ax by cx
 
+	push ax ; multiplied x coord
+
+	mov ax,bx
+	mul cx
+	push ax ; multiplied y coord
+
+	pop bx
+	pop ax
+
+	mov dx,GAME_SCALE
+	mov cx,GAME_SCALE
+
+	add ax,GRID_SPACING
+	add bx,GRID_SPACING
+
+	sub cx,GRID_SPACING
+	sub dx,GRID_SPACING
+
+	
+	; draw rect with color 15
+	push ax
+	push 15
+	call rect
+	pop ax
+	pop ax
+
+	pop bx
+	pop ax
+	
+	
+	; more funky loop stuff
+	inc ax
+	jmp .griddrawloopinner
+	.griddrawloopinnerend:
+
+	mov ax,0
+	inc bx
+	jmp .griddrawloopouter
+	
+.griddrawouterend:
 	
 	hlt ; wait for refresh (or something)
 	jmp main
