@@ -8,20 +8,23 @@
 %define GRID_SPACING 1
 ; AFA0
 
+%define SNAKE_LENGTH 0x0998 ; two bytes for length of snake before the array itself
 %define SNAKE_ARRAY_START 0x1000
 %define SNAKE_MAX_LEN GAME_WIDTH*GAME_HEIGHT
 
 
-mov ax,	0xA000 ; offset of base pointer for vga framebuffer
+mov ax,	0x0000
 mov ds,	ax
 
 mov ax,	0x0000
 mov ss,	ax
 mov sp,	0x7c00 ; set up stack pointer and stack offset to be below code (if it overflows it will do bad weird stuff though)
 
+mov [SNAKE_LENGTH],0
+call init
+
 main:
 
-	call init
 
 	mov al,10
 	call clearscr
@@ -100,10 +103,21 @@ main:
 	jmp .griddrawloopouter
 	
 .griddrawouterend:
-	
-	hlt ; wait for refresh (or something)
-	jmp main
 
+	inc [SNAKE_LENGTH]
+	push [SNAKE_LENGTH]
+	mov ax,0 
+	mov bx,0 
+	mov cx,10
+	mov dx,10
+	call rect
+	pop ax
+
+	call waitscreen
+	call show
+
+
+	jmp main
 
 
 %include "src/graphics.asm"

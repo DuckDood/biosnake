@@ -5,6 +5,52 @@ init:
 
 	ret
 
+show:
+	push ax
+	push cx
+	mov ax,ds
+	push ds ; ds is in stack to save
+	mov ax,0x7000
+	mov ds,ax
+	mov si,0
+	
+	mov ax,es
+	push es ; es is in stack to save
+	mov ax,0xA000
+	mov es,ax
+	mov di,0
+
+	mov cx,320*200 / 2; whole framebuffer
+	cld
+	rep movsw
+
+	pop es
+	pop ds
+	pop cx
+	pop ax
+	ret
+
+
+waitscreen:
+	push dx
+	push ax
+	mov dx,0x03da ; vga port
+
+.waitforend:
+	in al,dx
+	test al,8
+	jne .waitforend
+
+.waitforstart:
+	in al,dx
+	test al,8
+
+	je .waitforstart
+
+	pop ax
+	pop dx
+	ret
+
 clearscr: ; clear color is in al register
 	push bp
 	mov bp,sp ; create stack frame
@@ -13,7 +59,7 @@ clearscr: ; clear color is in al register
 	push cx
 	push dx
 	
-	mov bx,0xA000
+	mov bx,0x7000
 	mov es,bx ; move vga framebuffer offset into extra segment register
 	mov di,0x0 ; clear di (framebuffer starts at 0xA000 + 0 so)
 	mov cx,320*200 ; how many bytes we want to set (the whole buffer)
@@ -38,7 +84,7 @@ line: ; ax for x, bx for y, cx for width, stack for color (will stay on stack on
 
 	push ax ; save x coordinate
 
-	mov ax,0xA000
+	mov ax,0x7000
 	mov es,ax ; put framebuffer offset into extra segment
 
 	mov ax,320 ; put screen width in ax
