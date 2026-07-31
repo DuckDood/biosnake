@@ -8,12 +8,33 @@
 %define GRID_SPACING 1
 %define MOVEMENT_COUNT_THRESHOLD 10
 
+
 %define MOVEMENT_COUNTER 0x0996 ; frame count until snake actually moves so it doesnt speed along at ~60 units/s
 %define SNAKE_DIRECTION 0x0997 ; direction only takes up 2 bits worth but might as well make it 1 byte i don't think im that desperate for memory
-%define SNAKE_LENGTH 0x0998 ; two bytes for length of snake before the array itself
-%define SNAKE_ARRAY_START 0x1000 ; arranged in x,y,x,y order
+%define SNAKE_LENGTH 0x0998 ; 2 bytes
+
+%define SNAKE_TAIL_OFFSET 0x1000 ; two bytes (0x1000 and 0x1001)
+%define SNAKE_HEAD_OFFSET 0x1002 ; two bytes (0x1002 and 0x1003)
+
+%define SNAKE_ARRAY_START 0x1004 ; arranged in x,y,x,y order
 %define SNAKE_MAX_LEN GAME_WIDTH*GAME_HEIGHT
 
+; first things first load the extra sector
+
+mov ax,0
+mov es,ax
+mov bx,0x7e00
+
+mov ah,0x2
+mov al,2 ; 2 sectors is probably fine
+
+mov ch,0x0
+mov cl,2 ; start at sector 2
+mov dh,0 ; 
+
+mov dl,0x80
+
+int 0x13
 
 mov ax,	0x0000
 mov ds,	ax
@@ -25,10 +46,16 @@ mov sp,	0x7c00 ; set up stack pointer and stack offset to be below code (if it o
 
 mov [MOVEMENT_COUNTER],0
 
+mov [SNAKE_HEAD_OFFSET],0
+mov [SNAKE_TAIL_OFFSET],0
+
 mov [SNAKE_ARRAY_START],0
 mov [SNAKE_ARRAY_START+1],0
 
-mov [SNAKE_LENGTH],0
+mov [SNAKE_ARRAY_START+2],10
+mov [SNAKE_ARRAY_START+3],10
+
+mov [SNAKE_LENGTH],4
 mov [SNAKE_DIRECTION],0
 call init
 
@@ -196,6 +223,14 @@ main:
 
 	push 0
 
+	mov si,[SNAKE_LENGTH]
+
+	.snakedrawloop:
+	cmp si,0
+	jz .snakedrawend
+	dec si
+	dec si
+
 	call loadgridcoords
 	mov cx,GAME_SCALE
 	mov dx,GAME_SCALE
@@ -205,6 +240,9 @@ main:
 	dec cx
 	dec dx
 	call rect
+
+	jmp .snakedrawloop
+	.snakedrawend:
 
 	pop ax
 
@@ -225,16 +263,17 @@ main:
 
 	jmp main
 
-loadgridcoords: ; puts x and y in ax and bx
+loadgridcoords: ; put which snake segment you want in si and puts x and y in ax and bx
+
 	mov bl,GAME_SCALE
 
 	xor ax,ax
-	mov al,[SNAKE_ARRAY_START]
+	mov al,[SNAKE_ARRAY_START + si]
 	mul bl
 	push ax ; x on stack
 
 	xor ax,ax
-	mov al,[SNAKE_ARRAY_START+1]
+	mov al,[SNAKE_ARRAY_START+1 + si]
 	mul bl
 	push ax ; y on stack
 	pop bx
@@ -243,7 +282,10 @@ loadgridcoords: ; puts x and y in ax and bx
 	ret
 
 
-%include "src/graphics.asm"
+
+
 
 times 510-($-$$) db 0
 db 0x55, 0xaa ; in order to make disk bootable
+
+%include "src/graphics.asm"
