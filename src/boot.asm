@@ -52,10 +52,8 @@ mov [SNAKE_TAIL_OFFSET],0
 mov [SNAKE_ARRAY_START],0
 mov [SNAKE_ARRAY_START+1],0
 
-mov [SNAKE_ARRAY_START+2],10
-mov [SNAKE_ARRAY_START+3],10
 
-mov [SNAKE_LENGTH],4
+mov [SNAKE_LENGTH],1
 mov [SNAKE_DIRECTION],0
 call init
 
@@ -163,6 +161,9 @@ main:
 
 	cmp al,'s'
 	je .keys
+
+	cmp al,'e'
+	je .keye
 	 
 	 ; snake direction 0,1,2,3 corresponds to right,up,left,down
 
@@ -170,7 +171,6 @@ main:
 
 		.keyd:
 			mov [SNAKE_DIRECTION],0
-			;inc [SNAKE_ARRAY_START]
 			jmp .moveend
 
 		.keyw:
@@ -183,7 +183,10 @@ main:
 
 		.keys:
 			mov [SNAKE_DIRECTION],3
-			;inc [SNAKE_ARRAY_START+1]
+			jmp .moveend
+
+		.keye:
+			call growsnake
 			jmp .moveend
 	
 	.moveend:
@@ -192,8 +195,47 @@ main:
 
 	cmp [MOVEMENT_COUNTER],MOVEMENT_COUNT_THRESHOLD
 	jb .endsnakemove
+
 	; this happens when the movement counter hits
+
 	mov [MOVEMENT_COUNTER],0 ; reset movement countdown
+
+
+	;inc [SNAKE_HEAD_OFFSET]
+	;mov bx,[SNAKE_HEAD_OFFSET]
+
+
+
+	mov ax,[SNAKE_HEAD_OFFSET]
+	mov bx,2
+	mul bx
+	mov bx,ax
+
+
+	push [SNAKE_ARRAY_START + bx] ; current position
+	
+	inc [SNAKE_HEAD_OFFSET]
+
+	; because i dont know how to do modulos in asm
+	mov ax,[SNAKE_HEAD_OFFSET]
+	cmp ax,[SNAKE_LENGTH]
+	jne .dont_loop
+	sub ax,[SNAKE_LENGTH]
+
+	.dont_loop:
+	mov [SNAKE_HEAD_OFFSET],ax
+
+	;inc [SNAKE_LENGTH]
+
+	mov ax,[SNAKE_HEAD_OFFSET]
+	mov bx,2
+	mul bx
+	mov bx,ax
+
+	pop [SNAKE_ARRAY_START + bx] ; current position
+
+
+	
 
 	cmp [SNAKE_DIRECTION],0
 	je .movright
@@ -206,17 +248,18 @@ main:
 
 	jmp .endsnakemove
 
+	
 	.movright:
-		inc [SNAKE_ARRAY_START]
+		inc [SNAKE_ARRAY_START + bx]
 		jmp .endsnakemove
 	.movup:
-		dec [SNAKE_ARRAY_START+1]
+		dec [SNAKE_ARRAY_START+1 + bx]
 		jmp .endsnakemove
 	.movleft:
-		dec [SNAKE_ARRAY_START]
+		dec [SNAKE_ARRAY_START + bx]
 		jmp .endsnakemove
 	.movdown:
-		inc [SNAKE_ARRAY_START+1]
+		inc [SNAKE_ARRAY_START+1 + bx]
 		jmp .endsnakemove
 
 	.endsnakemove:
@@ -228,7 +271,6 @@ main:
 	.snakedrawloop:
 	cmp si,0
 	jz .snakedrawend
-	dec si
 	dec si
 
 	call loadgridcoords
@@ -251,7 +293,7 @@ main:
 	mov bx,0
 	mov cx,10
 	mov dx,10
-	call rect
+	;call rect
 	pop ax
 
 	
@@ -264,6 +306,14 @@ main:
 	jmp main
 
 loadgridcoords: ; put which snake segment you want in si and puts x and y in ax and bx
+
+
+	push si
+	mov ax,si
+	mov bx,2
+	mul bx
+	mov si,ax
+	
 
 	mov bl,GAME_SCALE
 
@@ -279,8 +329,67 @@ loadgridcoords: ; put which snake segment you want in si and puts x and y in ax 
 	pop bx
 	pop ax
 
+	pop si
+
 	ret
 
+
+growsnake:
+	inc [SNAKE_LENGTH]
+	; now i need to move everything after the head over by one space (two bytes)
+
+	;works but kinda weird
+	;mov ax,[SNAKE_HEAD_OFFSET] 
+	;inc ax
+	;mov bx,2
+	;mul bx
+	;push ax
+
+
+	;mov ax,[SNAKE_LENGTH] ; end of array index
+	;mov bx,2
+	;mul bx
+	;mov bx,ax
+	;pop ax
+	;.growloop:
+	;cmp ax,bx
+	;je .growend
+
+	;mov cx, [SNAKE_ARRAY_START-2 + bx]
+	;mov [SNAKE_ARRAY_START + bx],cx
+	;dec bx
+	;dec bx
+
+
+	;jmp .growloop
+	;.growend:
+
+	mov bx,[SNAKE_LENGTH]
+
+
+	.growloop:
+	mov ax,[SNAKE_HEAD_OFFSET]
+	cmp ax,bx
+	je .growend
+
+	push bx
+	mov ax,bx
+	mov cx,2
+	mul cx
+	mov bx,ax ; multiplies bx by 2 because we're doing 16 bit instead of 8
+
+	mov cx,[SNAKE_ARRAY_START-2 + bx]
+	mov [SNAKE_ARRAY_START + bx],cx
+
+	pop bx
+
+	dec bx
+	jmp .growloop
+
+	.growend:
+
+	ret
+	
 
 
 
