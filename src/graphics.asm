@@ -117,11 +117,11 @@ rect: ; ax for x, bx for y, cx for width, dx for height, stack for color
 	push dx
 
 	push [bp+4] ; pushes color in stack onto the top of the stack
-
+	
+	inc dx ; increments just so the decrement isnt offset
 .rectloop:
-	cmp dx,0
+	dec dx ; decrements and sets zero flag
 	je .rectend
-	dec dx
 
 	call line
 	inc bx

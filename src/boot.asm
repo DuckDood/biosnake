@@ -4,12 +4,14 @@
 
 %define GAME_WIDTH 20 ; max 255
 %define GAME_HEIGHT 20 ; max 255
-%define GAME_SCALE 5
+%define GAME_SCALE 8
 %define GRID_SPACING 1
-; AFA0
+%define MOVEMENT_COUNT_THRESHOLD 10
 
+%define MOVEMENT_COUNTER 0x0996 ; frame count until snake actually moves so it doesnt speed along at ~60 units/s
+%define SNAKE_DIRECTION 0x0997 ; direction only takes up 2 bits worth but might as well make it 1 byte i don't think im that desperate for memory
 %define SNAKE_LENGTH 0x0998 ; two bytes for length of snake before the array itself
-%define SNAKE_ARRAY_START 0x1000
+%define SNAKE_ARRAY_START 0x1000 ; arranged in x,y,x,y order
 %define SNAKE_MAX_LEN GAME_WIDTH*GAME_HEIGHT
 
 
@@ -18,14 +20,21 @@ mov ds,	ax
 
 mov ax,	0x0000
 mov ss,	ax
+
 mov sp,	0x7c00 ; set up stack pointer and stack offset to be below code (if it overflows it will do bad weird stuff though)
 
+mov [MOVEMENT_COUNTER],0
+
+mov [SNAKE_ARRAY_START],0
+mov [SNAKE_ARRAY_START+1],0
+
 mov [SNAKE_LENGTH],0
+mov [SNAKE_DIRECTION],0
 call init
 
 main:
-
-
+	
+	
 	mov al,10
 	call clearscr
 
@@ -104,20 +113,134 @@ main:
 	
 .griddrawouterend:
 
-	inc [SNAKE_LENGTH]
-	push [SNAKE_LENGTH]
-	mov ax,0 
-	mov bx,0 
+
+	mov ah,0x1
+	int 0x16 ; if zero flag is 0 key is down
+
+	;jnz .movecool; jump not zero (zf is 0)
+	jz .moveend ; if zero flag is not zero (meaning zero flag is true, meaning jz) jump past the key handle stuff
+
+	.movecool:
+	mov ah,0x0
+	int 0x16 ; if zero flag is 0 key is down
+	;inc [SNAKE_DIRECTION]
+
+	cmp al,'d'
+	je .keyd
+
+	cmp al,'w'
+	je .keyw
+
+	cmp al,'a'
+	je .keya
+
+	cmp al,'s'
+	je .keys
+	 
+	 ; snake direction 0,1,2,3 corresponds to right,up,left,down
+
+	jmp .moveend
+
+		.keyd:
+			mov [SNAKE_DIRECTION],0
+			;inc [SNAKE_ARRAY_START]
+			jmp .moveend
+
+		.keyw:
+			mov [SNAKE_DIRECTION],1
+			jmp .moveend
+
+		.keya:
+			mov [SNAKE_DIRECTION],2
+			jmp .moveend
+
+		.keys:
+			mov [SNAKE_DIRECTION],3
+			;inc [SNAKE_ARRAY_START+1]
+			jmp .moveend
+	
+	.moveend:
+
+	inc [MOVEMENT_COUNTER]
+
+	cmp [MOVEMENT_COUNTER],MOVEMENT_COUNT_THRESHOLD
+	jb .endsnakemove
+	; this happens when the movement counter hits
+	mov [MOVEMENT_COUNTER],0 ; reset movement countdown
+
+	cmp [SNAKE_DIRECTION],0
+	je .movright
+	cmp [SNAKE_DIRECTION],1
+	je .movup
+	cmp [SNAKE_DIRECTION],2
+	je .movleft
+	cmp [SNAKE_DIRECTION],3
+	je .movdown
+
+	jmp .endsnakemove
+
+	.movright:
+		inc [SNAKE_ARRAY_START]
+		jmp .endsnakemove
+	.movup:
+		dec [SNAKE_ARRAY_START+1]
+		jmp .endsnakemove
+	.movleft:
+		dec [SNAKE_ARRAY_START]
+		jmp .endsnakemove
+	.movdown:
+		inc [SNAKE_ARRAY_START+1]
+		jmp .endsnakemove
+
+	.endsnakemove:
+
+	push 0
+
+	call loadgridcoords
+	mov cx,GAME_SCALE
+	mov dx,GAME_SCALE
+
+	inc ax
+	inc bx
+	dec cx
+	dec dx
+	call rect
+
+	pop ax
+
+	push [SNAKE_DIRECTION]
+	mov ax,0
+	mov bx,0
 	mov cx,10
 	mov dx,10
 	call rect
 	pop ax
 
-	call waitscreen
-	call show
+	
+
+
+	call waitscreen ; will wait for screen to pause for a sec while the electron gun or whatever it is in an emulator resets
+	call show ; super quick copy buffer in between reset
 
 
 	jmp main
+
+loadgridcoords: ; puts x and y in ax and bx
+	mov bl,GAME_SCALE
+
+	xor ax,ax
+	mov al,[SNAKE_ARRAY_START]
+	mul bl
+	push ax ; x on stack
+
+	xor ax,ax
+	mov al,[SNAKE_ARRAY_START+1]
+	mul bl
+	push ax ; y on stack
+	pop bx
+	pop ax
+
+	ret
 
 
 %include "src/graphics.asm"
