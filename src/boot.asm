@@ -13,7 +13,7 @@
 %define SNAKE_DIRECTION 0x0997 ; direction only takes up 2 bits worth but might as well make it 1 byte i don't think im that desperate for memory
 %define SNAKE_LENGTH 0x0998 ; 2 bytes
 
-%define SNAKE_TAIL_OFFSET 0x1000 ; two bytes (0x1000 and 0x1001)
+%define WANTED_DIRECTION 0x1000 ; where the user wants to go before we actually change the direction
 %define SNAKE_HEAD_OFFSET 0x1002 ; two bytes (0x1002 and 0x1003)
 
 %define SNAKE_ARRAY_START 0x1004 ; arranged in x,y,x,y order
@@ -21,14 +21,16 @@
 
 ; first things first load the extra sector
 
-mov ax,0
+;mov ax,0
+xor ax,ax
 mov es,ax
 mov bx,0x7e00
 
 mov ah,0x2
 mov al,2 ; 2 sectors is probably fine
 
-mov ch,0x0
+;mov ch,0x0
+xor ch,ch
 mov cl,2 ; start at sector 2
 mov dh,0 ; 
 
@@ -47,7 +49,6 @@ mov sp,	0x7c00 ; set up stack pointer and stack offset to be below code (if it o
 mov [MOVEMENT_COUNTER],0
 
 mov [SNAKE_HEAD_OFFSET],0
-mov [SNAKE_TAIL_OFFSET],0
 
 mov [SNAKE_ARRAY_START],0
 mov [SNAKE_ARRAY_START+1],0
@@ -55,6 +56,7 @@ mov [SNAKE_ARRAY_START+1],0
 
 mov [SNAKE_LENGTH],1
 mov [SNAKE_DIRECTION],0
+mov [WANTED_DIRECTION],0
 call init
 
 main:
@@ -132,7 +134,8 @@ main:
 	jmp .griddrawloopinner
 	.griddrawloopinnerend:
 
-	mov ax,0
+	;mov ax,0
+	xor ax,ax
 	inc bx
 	jmp .griddrawloopouter
 	
@@ -146,7 +149,8 @@ main:
 	jz .moveend ; if zero flag is not zero (meaning zero flag is true, meaning jz) jump past the key handle stuff
 
 	.movecool:
-	mov ah,0x0
+	;mov ah,0x0
+	xor ah,ah
 	int 0x16 ; if zero flag is 0 key is down
 	;inc [SNAKE_DIRECTION]
 
@@ -170,19 +174,19 @@ main:
 	jmp .moveend
 
 		.keyd:
-			mov [SNAKE_DIRECTION],0
+			mov [WANTED_DIRECTION],0
 			jmp .moveend
 
 		.keyw:
-			mov [SNAKE_DIRECTION],1
+			mov [WANTED_DIRECTION],1
 			jmp .moveend
 
 		.keya:
-			mov [SNAKE_DIRECTION],2
+			mov [WANTED_DIRECTION],2
 			jmp .moveend
 
 		.keys:
-			mov [SNAKE_DIRECTION],3
+			mov [WANTED_DIRECTION],3
 			jmp .moveend
 
 		.keye:
@@ -234,7 +238,42 @@ main:
 
 	pop [SNAKE_ARRAY_START + bx] ; current position
 
+	mov al,[WANTED_DIRECTION]
+	;cmp al,[SNAKE_DIRECTION]
+	sub al,[SNAKE_DIRECTION]
+	
+	cmp al,2
+	je .nosetdirection
+	cmp al,-2
+	je .nosetdirection
 
+	
+	mov al,[WANTED_DIRECTION]
+	mov [SNAKE_DIRECTION],al
+	.nosetdirection:
+
+	;mov [SNAKE_DIRECTION],al
+
+	;jg .albigger; al is bigger
+	;jl .alsmaller; al is smaller
+	;
+	;jmp .nosetdirection ; equal so it doesnt matter
+    ;
+	;.albigger:
+	;	sub al,[SNAKE_DIRECTION]
+	;	cmp al,2
+	;	je .nosetdirection
+	;	jmp .setdirection
+	;	
+	;.alsmaller:
+	;	sub [SNAKE_DIRECTION],al
+	;	cmp [SNAKE_DIRECTION],2
+	;	je .nosetdirection
+	;	jmp .setdirection
+    ;
+	;.setdirection:
+	;mov [SNAKE_DIRECTION],al
+	;.nosetdirection:
 	
 
 	cmp [SNAKE_DIRECTION],0
@@ -289,8 +328,10 @@ main:
 	pop ax
 
 	push [SNAKE_DIRECTION]
-	mov ax,0
-	mov bx,0
+	;mov ax,0
+	;mov bx,0
+	xor ax,ax
+	xor bx,bx
 	mov cx,10
 	mov dx,10
 	;call rect
@@ -390,10 +431,6 @@ growsnake:
 
 	ret
 	
-
-
-
-
 times 510-($-$$) db 0
 db 0x55, 0xaa ; in order to make disk bootable
 
