@@ -46,18 +46,13 @@ mov ss,	ax
 
 mov sp,	0x7c00 ; set up stack pointer and stack offset to be below code (if it overflows it will do bad weird stuff though)
 
-mov [MOVEMENT_COUNTER],0
-
-mov [SNAKE_HEAD_OFFSET],0
-
-mov [SNAKE_ARRAY_START],0
-mov [SNAKE_ARRAY_START+1],0
-
-
-mov [SNAKE_LENGTH],1
-mov [SNAKE_DIRECTION],0
-mov [WANTED_DIRECTION],0
+call initvars
 call init
+
+jmp main
+
+times 510-($-$$) db 0
+db 0x55, 0xaa ; in order to make disk bootable
 
 main:
 	
@@ -217,7 +212,7 @@ main:
 
 
 	push [SNAKE_ARRAY_START + bx] ; current position
-	call growsnake
+	;call growsnake
 	inc [SNAKE_HEAD_OFFSET]
 
 	; because i dont know how to do modulos in asm
@@ -415,8 +410,8 @@ main:
 
 	jmp main
 
-times 510-($-$$) db 0
-db 0x55, 0xaa ; in order to make disk bootable
+;times 510-($-$$) db 0
+;db 0x55, 0xaa ; in order to make disk bootable
 ; sectors down here loaded by an interrupt at the start
 
 loadgridcoords: ; put which snake segment you want in si and puts x and y in ax and bx
@@ -523,5 +518,18 @@ killsnake: ; we can make this functoin as fancy as we want because its outside o
 	pop ax
 	jmp $ ; fun way to kill the player
 	
+initvars:
+	mov [MOVEMENT_COUNTER],0
+	
+	mov [SNAKE_HEAD_OFFSET],0
+	
+	mov [SNAKE_ARRAY_START],0
+	mov [SNAKE_ARRAY_START+1],0
+	
+	
+	mov [SNAKE_LENGTH],1
+	mov [SNAKE_DIRECTION],0
+	mov [WANTED_DIRECTION],0
+	ret
 
 %include "src/graphics.asm"
