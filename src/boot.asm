@@ -2,18 +2,18 @@
 [org 0x7c00]
 ; we have 510 bytes to use here (perfect for snake!)
 
-%define GAME_WIDTH 20 ; max 255
+%define GAME_WIDTH 30 ; max 255
 %define GAME_HEIGHT 20 ; max 255
 %define GAME_SCALE 8
-%define GRID_SPACING 1
-%define MOVEMENT_COUNT_THRESHOLD 10
+%define GRID_SPACING 0
+%define MOVEMENT_COUNT_THRESHOLD 5
 
 
 %define MOVEMENT_COUNTER 0x0996 ; frame count until snake actually moves so it doesnt speed along at ~60 units/s
 %define SNAKE_DIRECTION 0x0997 ; direction only takes up 2 bits worth but might as well make it 1 byte i don't think im that desperate for memory
 %define SNAKE_LENGTH 0x0998 ; 2 bytes
 
-%define WANTED_DIRECTION 0x1000 ; where the user wants to go before we actually change the direction
+%define WANTED_DIRECTION 0x1000 ; where the user wants to go before we actually change the direction (i inserted this into here because i had some unused variables, but i might want to turn it into a queue with the extra byte)
 %define SNAKE_HEAD_OFFSET 0x1002 ; two bytes (0x1002 and 0x1003)
 
 %define SNAKE_ARRAY_START 0x1004 ; arranged in x,y,x,y order
@@ -72,8 +72,8 @@ main:
 	;push 4
 	;call rect
 
-	mov cx,GAME_SCALE
-	mov dx,GAME_SCALE
+	;mov cx,GAME_SCALE
+	;mov dx,GAME_SCALE
 
 	mov ax, 0
 	mov bx, 0
@@ -217,19 +217,26 @@ main:
 
 
 	push [SNAKE_ARRAY_START + bx] ; current position
-	
+	call growsnake
 	inc [SNAKE_HEAD_OFFSET]
 
 	; because i dont know how to do modulos in asm
-	mov ax,[SNAKE_HEAD_OFFSET]
-	cmp ax,[SNAKE_LENGTH]
-	jne .dont_loop
-	sub ax,[SNAKE_LENGTH]
+	;mov ax,[SNAKE_HEAD_OFFSET]
+	;cmp ax,[SNAKE_LENGTH]
+	;jne .dont_loop
+	;sub ax,[SNAKE_LENGTH]
 
-	.dont_loop:
-	mov [SNAKE_HEAD_OFFSET],ax
+	;.dont_loop:
+	;mov [SNAKE_HEAD_OFFSET],ax
 
 	;inc [SNAKE_LENGTH]
+	xor dx,dx
+	mov ax,[SNAKE_HEAD_OFFSET]
+	mov bx,[SNAKE_LENGTH]
+	div bx ; 16 bit div divides dx:ax by (here) bx, puts the result in ax and the remainder (modulo for us) in dx
+
+	mov [SNAKE_HEAD_OFFSET],dx
+
 
 	mov ax,[SNAKE_HEAD_OFFSET]
 	mov bx,2
@@ -290,18 +297,87 @@ main:
 	
 	.movright:
 		inc [SNAKE_ARRAY_START + bx]
-		jmp .endsnakemove
+		jmp .checkoutofbounds
 	.movup:
 		dec [SNAKE_ARRAY_START+1 + bx]
-		jmp .endsnakemove
+		jmp .checkoutofbounds
 	.movleft:
 		dec [SNAKE_ARRAY_START + bx]
-		jmp .endsnakemove
+		jmp .checkoutofbounds
 	.movdown:
 		inc [SNAKE_ARRAY_START+1 + bx]
-		jmp .endsnakemove
+		jmp .checkoutofbounds
 
+	.checkoutofbounds:
+
+	cmp [SNAKE_ARRAY_START + bx],GAME_WIDTH ; if snake is out of bounds
+	jge killsnake ; jmp if not greater than or equal
+
+	cmp [SNAKE_ARRAY_START+1 + bx],GAME_HEIGHT ; if snake is out of bounds
+	jge killsnake
+
+	cmp [SNAKE_ARRAY_START + bx],0 ; if snake is out of bounds
+	jl killsnake ; jmp if less than (not sure how it works with signed vs unsigned stuff but its working so)
+
+	cmp [SNAKE_ARRAY_START+1 + bx],0 ; if snake is out of bounds
+	jl killsnake
+	jmp .endsnakemove
 	.endsnakemove:
+
+	mov ax,0
+	.checkintersect:
+
+	push ax
+	mov cx,2
+	mul cx
+
+	mov bx,ax
+
+	mov ax,[SNAKE_HEAD_OFFSET]
+	mul cx
+
+	cmp ax,bx
+	je .checkcontinue
+
+	mov cx,[SNAKE_ARRAY_START + bx]
+	mov bx,ax
+	mov dx,[SNAKE_ARRAY_START + bx]
+	
+	cmp cx,dx
+	jne .checkconend
+	;mov ax,0
+	;mov bx,0
+	;mov cx,15
+	;mov dx,15
+	;push 90
+	;call rect
+	;pop ax
+
+	call killsnake
+
+	
+	jmp .checkconend
+
+
+	.checkcontinue:
+	;mov ax,0
+	;mov bx,0
+	;mov cx,15
+	;mov dx,15
+	;push 90
+	;call rect
+	;pop ax
+
+	.checkconend:
+	pop ax
+
+
+	inc ax
+	cmp ax,[SNAKE_LENGTH]
+	je .endsnakecheck
+
+	jmp .checkintersect
+	.endsnakecheck:
 
 	push 0
 
@@ -316,10 +392,16 @@ main:
 	mov cx,GAME_SCALE
 	mov dx,GAME_SCALE
 
-	inc ax
-	inc bx
-	dec cx
-	dec dx
+	add ax,GRID_SPACING
+	add bx,GRID_SPACING
+
+	sub cx,GRID_SPACING
+	sub dx,GRID_SPACING
+
+	;inc ax
+	;inc bx
+	;dec cx
+	;dec dx
 	call rect
 
 	jmp .snakedrawloop
@@ -327,24 +409,15 @@ main:
 
 	pop ax
 
-	push [SNAKE_DIRECTION]
-	;mov ax,0
-	;mov bx,0
-	xor ax,ax
-	xor bx,bx
-	mov cx,10
-	mov dx,10
-	;call rect
-	pop ax
-
-	
-
-
 	call waitscreen ; will wait for screen to pause for a sec while the electron gun or whatever it is in an emulator resets
 	call show ; super quick copy buffer in between reset
 
 
 	jmp main
+
+times 510-($-$$) db 0
+db 0x55, 0xaa ; in order to make disk bootable
+; sectors down here loaded by an interrupt at the start
 
 loadgridcoords: ; put which snake segment you want in si and puts x and y in ax and bx
 
@@ -420,6 +493,7 @@ growsnake:
 	mov bx,ax ; multiplies bx by 2 because we're doing 16 bit instead of 8
 
 	mov cx,[SNAKE_ARRAY_START-2 + bx]
+	;mov [SNAKE_ARRAY_START-2 + bx],0 ; just because
 	mov [SNAKE_ARRAY_START + bx],cx
 
 	pop bx
@@ -429,9 +503,25 @@ growsnake:
 
 	.growend:
 
+	mov bx,[SNAKE_HEAD_OFFSET]
+	mov ax,bx
+	mov cx,2
+	mul cx
+	mov bx,ax 
+	mov word [SNAKE_ARRAY_START+2 + bx], -1 ; just moves the new position to 0,0 for now (will change later)
+
 	ret
+
+killsnake: ; we can make this functoin as fancy as we want because its outside of the 512 byte limit
+	mov ax,0
+	mov bx,0
+	mov cx,50
+	mov dx,50
+	push 14
+	call rect
+	call show
+	pop ax
+	jmp $ ; fun way to kill the player
 	
-times 510-($-$$) db 0
-db 0x55, 0xaa ; in order to make disk bootable
 
 %include "src/graphics.asm"
