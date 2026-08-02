@@ -1,9 +1,8 @@
 [BITS 16]
 [org 0x7c00]
-; we have 510 bytes to use here (perfect for snake!)
 
-%define GAME_WIDTH 30 ; max 255
-%define GAME_HEIGHT 20 ; max 255
+%define GAME_WIDTH 30 ; max 127
+%define GAME_HEIGHT 20 ; max 127
 %define GAME_SCALE 8
 %define GRID_SPACING 0
 %define MOVEMENT_COUNT_THRESHOLD 5
@@ -554,7 +553,7 @@ loadgridcoords: ; put which snake segment you want in si and puts x and y in ax 
 
 
 growsnake:
-	inc [SNAKE_LENGTH]
+	inc word [SNAKE_LENGTH]
 	; now i need to move everything after the head over by one space (two bytes)
 
 	;works but kinda weird
