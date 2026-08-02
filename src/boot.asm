@@ -16,10 +16,10 @@
 %define SNAKE_DIRECTION 0x0997 ; direction only takes up 2 bits worth but might as well make it 1 byte i don't think im that desperate for memory
 %define SNAKE_LENGTH 0x0998 ; 2 bytes
 
-%define WANTED_DIRECTION 0x1000 ; where the user wants to go before we actually change the direction (i inserted this into here because i had some unused variables, but i might want to turn it into a queue with the extra byte)
-%define SNAKE_HEAD_OFFSET 0x1002 ; two bytes (0x1002 and 0x1003)
+%define WANTED_DIRECTION 0x099A; where the user wants to go before we actually change the direction (i inserted this into here because i had some unused variables, but i might want to turn it into a queue with the extra byte)
+%define SNAKE_HEAD_OFFSET 0x099C ; two bytes (0x099C and 0x099E)
 
-%define SNAKE_ARRAY_START 0x1004 ; arranged in x,y,x,y order
+%define SNAKE_ARRAY_START 0x1000 ; arranged in x,y,x,y order
 %define SNAKE_MAX_LEN GAME_WIDTH*GAME_HEIGHT
 
 ; first things first load the extra sector
