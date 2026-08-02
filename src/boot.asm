@@ -9,6 +9,10 @@
 %define MOVEMENT_COUNT_THRESHOLD 5
 
 
+%define RANDSEED 0x0992
+
+%define APPLE_POSITION 0x0994 ; two bytes for position
+
 %define MOVEMENT_COUNTER 0x0996 ; frame count until snake actually moves so it doesnt speed along at ~60 units/s
 %define SNAKE_DIRECTION 0x0997 ; direction only takes up 2 bits worth but might as well make it 1 byte i don't think im that desperate for memory
 %define SNAKE_LENGTH 0x0998 ; 2 bytes
@@ -27,7 +31,7 @@ mov es,ax
 mov bx,0x7e00
 
 mov ah,0x2
-mov al,2 ; 2 sectors is probably fine
+mov al,4 ; 2 sectors is probably fine
 
 ;mov ch,0x0
 xor ch,ch
@@ -51,6 +55,7 @@ call init
 
 jmp main
 
+; might want to move main back here if i can make it fit
 times 510-($-$$) db 0
 db 0x55, 0xaa ; in order to make disk bootable
 
@@ -163,6 +168,9 @@ main:
 
 	cmp al,'e'
 	je .keye
+
+	cmp al,'p'
+	je .keyp
 	 
 	 ; snake direction 0,1,2,3 corresponds to right,up,left,down
 
@@ -187,6 +195,13 @@ main:
 		.keye:
 			call growsnake
 			jmp .moveend
+
+		
+		.keyp:
+			mov ah,0
+			int 0x16
+			
+			jmp .moveend
 	
 	.moveend:
 
@@ -195,9 +210,12 @@ main:
 	cmp [MOVEMENT_COUNTER],MOVEMENT_COUNT_THRESHOLD
 	jb .endsnakemove
 
+
 	; this happens when the movement counter hits
 
 	mov [MOVEMENT_COUNTER],0 ; reset movement countdown
+
+	;call randomizeapple
 
 
 	;inc [SNAKE_HEAD_OFFSET]
@@ -316,6 +334,20 @@ main:
 
 	cmp [SNAKE_ARRAY_START+1 + bx],0 ; if snake is out of bounds
 	jl killsnake
+	
+	; apple intersect code
+	mov ax,[SNAKE_HEAD_OFFSET]
+	mov bx,2
+	mul bx
+	mov bx,ax
+	mov ax,[SNAKE_ARRAY_START + bx]
+	cmp ax, [APPLE_POSITION]
+	jne .dontextend
+
+	call randomizeapple
+	call growsnake
+
+	.dontextend:
 	jmp .endsnakemove
 	.endsnakemove:
 
@@ -384,6 +416,11 @@ main:
 	dec si
 
 	call loadgridcoords
+	cmp ax,GAME_WIDTH * GAME_SCALE
+	jge .snakedrawloop
+	cmp bx,GAME_WIDTH * GAME_SCALE
+	jge .snakedrawloop
+
 	mov cx,GAME_SCALE
 	mov dx,GAME_SCALE
 
@@ -402,6 +439,24 @@ main:
 	jmp .snakedrawloop
 	.snakedrawend:
 
+
+
+	pop ax
+
+	mov ax,[APPLE_POSITION]
+	mov bl,GAME_SCALE
+	mul bl
+	push ax
+	mov ax,[APPLE_POSITION+1]
+	mul bl
+	mov bx,ax
+	pop ax
+
+	mov cx,GAME_SCALE
+	mov dx,GAME_SCALE
+
+	push 0x0c
+	call rect
 	pop ax
 
 	call waitscreen ; will wait for screen to pause for a sec while the electron gun or whatever it is in an emulator resets
@@ -413,6 +468,61 @@ main:
 ;times 510-($-$$) db 0
 ;db 0x55, 0xaa ; in order to make disk bootable
 ; sectors down here loaded by an interrupt at the start
+
+random: ;stores random number in ax
+	mov ax,[RANDSEED]
+	mov bx,0x3490
+	mul bx
+	add ax,5324
+	mov bx,0x9523
+	mul bx
+
+	push ax
+
+	mov ax,[RANDSEED]
+	mov bx,0x4325
+	mul bx
+	add ax,9237
+	mov bx,0x1295
+	mul bx
+
+	pop bx
+	xor ax,bx
+
+	mov [RANDSEED],ax ; hopefully this number is pretty random
+	ret
+
+randomizeapple:
+	;rdrand [APPLE_POSITION]
+	call random
+
+	mov ah,0
+	mov bl,GAME_WIDTH
+	div bl
+
+	mov [APPLE_POSITION],ah ; modulo stored in ah after division
+
+	call random
+
+	mov ah,0
+	mov bl,GAME_HEIGHT
+	div bl
+
+	mov [APPLE_POSITION+1],ah ; modulo stored in ah after division
+
+
+	;mov [APPLE_POSITION],al ; modulo stored in ah after division
+
+	;mov [APPLE_POSITION+1],al ; modulo stored in ah after division
+	;inc [APPLE_POSITION]
+	;inc [APPLE_POSITION+1]
+
+	;rdrand ax ; puts random number in ax
+
+	;mov [APPLE_POSITION],ah
+	;mov [APPLE_POSITION+1],al
+	
+	ret
 
 loadgridcoords: ; put which snake segment you want in si and puts x and y in ax and bx
 
@@ -503,7 +613,8 @@ growsnake:
 	mov cx,2
 	mul cx
 	mov bx,ax 
-	mov word [SNAKE_ARRAY_START+2 + bx], -1 ; just moves the new position to 0,0 for now (will change later)
+	mov [SNAKE_ARRAY_START+2 + bx], GAME_WIDTH ; just moves the new position to 0,0 for now (will change later)
+	mov [SNAKE_ARRAY_START+2 + bx+1], GAME_HEIGHT ; just moves the new position to 0,0 for now (will change later)
 
 	ret
 
@@ -530,6 +641,11 @@ initvars:
 	mov [SNAKE_LENGTH],1
 	mov [SNAKE_DIRECTION],0
 	mov [WANTED_DIRECTION],0
+
+	mov word [APPLE_POSITION],0
+
+	call randomizeapple
+
 	ret
 
 %include "src/graphics.asm"
