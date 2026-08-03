@@ -154,15 +154,19 @@ main:
 	;inc [SNAKE_DIRECTION]
 
 	cmp al,'d'
+	;cmp al,'l'
 	je .keyd
 
 	cmp al,'w'
+	;cmp al,'k'
 	je .keyw
 
 	cmp al,'a'
+	;cmp al,'h'
 	je .keya
 
 	cmp al,'s'
+	;cmp al,'j'
 	je .keys
 
 	cmp al,'e'
@@ -405,42 +409,7 @@ main:
 	jmp .checkintersect
 	.endsnakecheck:
 
-	push 0
-
-	mov si,[SNAKE_LENGTH]
-
-	.snakedrawloop:
-	cmp si,0
-	jz .snakedrawend
-	dec si
-
-	call loadgridcoords
-	cmp ax,GAME_WIDTH * GAME_SCALE
-	jge .snakedrawloop
-	cmp bx,GAME_WIDTH * GAME_SCALE
-	jge .snakedrawloop
-
-	mov cx,GAME_SCALE
-	mov dx,GAME_SCALE
-
-	add ax,GRID_SPACING
-	add bx,GRID_SPACING
-
-	sub cx,GRID_SPACING
-	sub dx,GRID_SPACING
-
-	;inc ax
-	;inc bx
-	;dec cx
-	;dec dx
-	call rect
-
-	jmp .snakedrawloop
-	.snakedrawend:
-
-
-
-	pop ax
+	call drawsnake
 
 	mov ax,[APPLE_POSITION]
 	mov bl,GAME_SCALE
@@ -467,6 +436,95 @@ main:
 ;times 510-($-$$) db 0
 ;db 0x55, 0xaa ; in order to make disk bootable
 ; sectors down here loaded by an interrupt at the start
+
+drawsnake:
+	push 0
+
+	mov si,[SNAKE_LENGTH]
+
+	.snakedrawloop:
+
+	cmp si,0
+	jz .snakedrawend
+	dec si
+
+	mov ax,si
+	call snakeindexconvert ; ax
+
+	mov bx,[SNAKE_LENGTH]
+	dec bx
+	cmp ax,bx
+	mov ax,0
+	sete al
+	mov di,ax
+
+
+	call loadgridcoords
+
+
+	cmp ax,GAME_WIDTH * GAME_SCALE
+	jge .snakedrawloop
+	cmp bx,GAME_WIDTH * GAME_SCALE
+	jge .snakedrawloop
+
+	
+
+	mov cx,GAME_SCALE
+	mov dx,GAME_SCALE
+
+	add ax,GRID_SPACING
+	add bx,GRID_SPACING
+
+	sub cx,GRID_SPACING
+	sub dx,GRID_SPACING
+
+	push di
+	
+	;inc ax
+	;inc bx
+	;dec cx
+	;dec dx
+	call rect
+	;pop di
+	;pop ax
+
+	pop di
+	
+
+	jmp .snakedrawloop
+	.snakedrawend:
+
+
+
+	pop ax
+	ret
+
+snakeindexconvert: ; put index in ax
+	; (index + capacity - head) % capacity
+	; (head + capacity - index) % capacity
+	mov bx,[SNAKE_LENGTH]
+
+	add bx,[SNAKE_HEAD_OFFSET]
+
+	sub bx,ax ; now bx has the first part
+	xor dx,dx
+	mov ax,bx
+	mov bx,[SNAKE_LENGTH]
+	div bx
+
+	mov ax,dx
+
+	;add ax,bx
+	;sub ax,[SNAKE_HEAD_OFFSET]
+	;xor dx,dx
+	;div bx
+    ;
+	;sub bx,dx
+	;mov ax,bx
+	;;mov ax,dx
+	;dec ax
+	ret
+	
 
 random: ;stores random number in ax
 	mov ax,[RANDSEED]
