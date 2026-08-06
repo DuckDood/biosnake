@@ -5,7 +5,7 @@
 %define GAME_HEIGHT 20 ; max 127
 %define GAME_SCALE 8
 %define GRID_SPACING 0
-%define MOVEMENT_COUNT_THRESHOLD 5
+%define MOVEMENT_COUNT_THRESHOLD 15
 
 
 %define RANDSEED 0x0992
@@ -51,7 +51,6 @@ mov sp,	0x7c00 ; set up stack pointer and stack offset to be below code (if it o
 
 call initvars
 call init
-
 jmp main
 
 ; might want to move main back here if i can make it fit
@@ -337,6 +336,8 @@ main:
 
 	cmp [SNAKE_ARRAY_START+1 + bx],0 ; if snake is out of bounds
 	jl killsnake
+
+	mov [endsnakeoutside],0
 	
 	; apple intersect code
 	mov ax,[SNAKE_HEAD_OFFSET]
@@ -437,66 +438,403 @@ main:
 ;db 0x55, 0xaa ; in order to make disk bootable
 ; sectors down here loaded by an interrupt at the start
 
+endsnakeoutside: db 0
+
 drawsnake:
-	push 0
-
-	mov si,[SNAKE_LENGTH]
-
-	.snakedrawloop:
-
-	cmp si,0
-	jz .snakedrawend
-	dec si
-
-	mov ax,si
-	call snakeindexconvert ; ax
-
-	mov bx,[SNAKE_LENGTH]
-	dec bx
-	cmp ax,bx
-	mov ax,0
-	sete al
-	mov di,ax
+	mov si,[SNAKE_HEAD_OFFSET]
+	;mov di,0
+	xor di,di
 
 
-	call loadgridcoords
+	;push si
+	;mov ax,si
+	;inc ax
+	;call snakeindexmod
+	;mov si,ax
+    ;
+	;sal si,1
+	;mov ax,[SNAKE_ARRAY_START + si]
+	;cmp ax,GAME_WIDTH
+	;setge [endsnakeoutside]
+    ;
+	;pop si
+
+	;mov si,[SNAKE_HEAD_OFFSET]
 
 
-	cmp ax,GAME_WIDTH * GAME_SCALE
-	jge .snakedrawloop
-	cmp bx,GAME_WIDTH * GAME_SCALE
-	jge .snakedrawloop
+	;call loadgridcoords
+	;
+	;cmp ax,GAME_SCALE * GAME_WIDTH
+	;
+	;je .setout
+	;jmp .nosetout
+	;.setout:
+	;mov word [endsnakeoutside],0
+	;
+	;jmp .setoutend
 
-	
+	;.nosetout:
+	;mov word [endsnakeoutside],0
 
-	mov cx,GAME_SCALE
-	mov dx,GAME_SCALE
+	;.setoutend:
 
-	add ax,GRID_SPACING
-	add bx,GRID_SPACING
 
-	sub cx,GRID_SPACING
-	sub dx,GRID_SPACING
 
+	.snakedrawloop: ; do
+
+	; code below is scary
+	; it calculates the next and previous segment relative to current segment so we can draw it thin and stuff
+	push si
 	push di
 	
-	;inc ax
-	;inc bx
-	;dec cx
-	;dec dx
-	call rect
-	;pop di
-	;pop ax
+	mov ax,si
+	inc ax
+	call snakeindexmod
+	mov di,ax ; si for 1 and di for 2
+	xor ax,ax ; set ax to zero for later
+	sal si,1
+	sal di,1
+	mov bh,[SNAKE_ARRAY_START+si] ; x1
+	mov bl,[SNAKE_ARRAY_START+di] ; x2
+	cmp bh,bl
+	sete al ; if x's are equal one in ax,otherwise zero
+	add si,ax
+	add di,ax ; check y's if x's are the same
+	mov bh,[SNAKE_ARRAY_START+si] ; x/y1
+	mov bl,[SNAKE_ARRAY_START+di] ; x/y2
+	cmp bh,bl
+	setg ah ; 1 if second segment is greater otherwise 0
+	sal al,1 ; move x/y toggle to the left
+	or al,ah ; 00 if the x is less in the next segment, 01 if greater, and 1x for y's 
+	xor ah,ah
 
 	pop di
+	pop si
+
+	push ax ; now the info in ax is saved in the stack
+
+	; do it again but for previous segment instead of next
+	push si
+	push di
 	
+	mov ax,si
+	dec ax ; decrement instead
+	call snakeindexmod
+	mov di,ax ; si for 1 and di for 0
+	xor cx,cx ; set ax to zero for later
+	sal si,1
+	sal di,1
+	mov bh,[SNAKE_ARRAY_START+si] ; x1
+	mov bl,[SNAKE_ARRAY_START+di] ; x2
+	cmp bh,bl
+	sete cl ; if x's are equal one in ax,otherwise zero
+	add si,cx
+	add di,cx ; check y's if x's are the same
+	mov bh,[SNAKE_ARRAY_START+si] ; x/y1
+	mov bl,[SNAKE_ARRAY_START+di] ; x/y2
+	cmp bh,bl
+	setg ch ; 1 if second segment is greater otherwise 0
+	sal cl,1 ; move x/y toggle to the left
+	or cl,ch ; 00 if the x is less in the next segment, 01 if greater, and 1x for y's 
+	xor ch,ch
 
-	jmp .snakedrawloop
-	.snakedrawend:
-
-
+	pop di
+	pop si
 
 	pop ax
+	sal cx,2 ; shift cx bits to the left twice
+	or ax,cx
+
+	;push ax ; now ax has the next segment offset data
+	mov bp,ax
+
+	call loadgridcoords
+	
+	cmp ax,GAME_SCALE * GAME_WIDTH
+	;je .snakedrawcontinue
+	mov cx,GAME_SCALE
+	mov dx,GAME_SCALE
+	
+	;and bp,0b00000001
+	;sub cx,bp
+	;sub cx,bp
+	;add ax,bp
+
+	;not bp
+	;and bp,0b00000001
+
+	;sub dx,bp
+	;sub dx,bp
+	;add bx,bp
+
+	;push di
+	
+	; now a ton of cmps for how to draw the snake!!
+	; so much fun writing this
+
+	; TODO: stop
+
+	cmp di,0
+	je .fallbackdraw
+
+	push ax
+	xor ax,ax
+	mov al,[endsnakeoutside]
+	inc al
+	cmp di,ax
+	pop ax
+	;cmp di,1
+	je .backdraw
+
+	cmp bp,0x4
+	je .straightdrawx
+
+	cmp bp,0x1
+	je .straightdrawx
+
+	cmp bp,0xE
+	je .straightdrawy
+
+	cmp bp,0xB
+	je .straightdrawy
+
+	cmp bp,0xD
+	je .benddrawleftup
+
+	cmp bp,0x7
+	je .benddrawleftup
+
+	cmp bp,0x6
+	je .benddrawleftdown
+
+	cmp bp,0x9
+	je .benddrawleftdown
+
+	cmp bp,0x3
+	je .benddrawrightup
+
+	cmp bp,0xC
+	je .benddrawrightup
+
+	cmp bp,0x8
+	je .benddrawrightdown
+
+	cmp bp,0x2
+	je .benddrawrightdown
+
+	jmp .fallbackdraw
+
+	.straightdrawx:
+	sub dx,2
+	inc bx
+	push di
+	call rect
+	pop bp
+	jmp .enddraw
+
+	.straightdrawy:
+	sub cx,2
+	inc ax
+	push di
+	call rect
+	pop bp
+	jmp .enddraw
+
+	.benddrawleftup:
+	sub cx,2
+	inc ax
+
+	dec dx
+	push di
+	call rect
+	pop bp
+	inc dx
+
+	add cx,2
+	dec ax
+
+	sub dx,2
+	inc bx
+	dec cx
+
+	push di
+	call rect
+	pop bp
+	jmp .enddraw
+
+	.benddrawleftdown:
+	sub cx,2
+	inc ax
+
+	inc bx
+	dec dx
+
+	push di
+	call rect
+	pop bp
+
+	dec bx
+	inc dx
+
+	add cx,2
+	dec ax
+
+	sub dx,2
+	inc bx
+	dec cx
+
+	push di
+	call rect
+	pop bp
+	jmp .enddraw
+
+	.benddrawrightup:
+	sub cx,2
+	inc ax
+
+	dec dx
+
+
+	push di
+	call rect
+	pop bp
+
+	inc dx
+
+
+	add cx,2
+	dec ax
+
+	sub dx,2
+	inc bx
+
+	inc ax
+	dec cx
+	push di
+	call rect
+	pop bp
+	jmp .enddraw
+
+	.benddrawrightdown:
+	sub cx,2
+	inc ax
+
+	inc bx
+	dec dx
+
+
+	push di
+	call rect
+	pop bp
+
+	inc dx
+	dec bx
+
+
+	add cx,2
+	dec ax
+
+	sub dx,2
+	inc bx
+
+	inc ax
+	dec cx
+	push di
+	call rect
+	pop bp
+	jmp .enddraw
+
+	.backdraw:
+	and bp,0b000000000000010
+
+	push bx
+	mov bx,0
+	cmp bp,0b000000000000010 ; if that bit is set
+
+	sete bl
+
+	add ax,bx
+	sub cx,bx
+	sub cx,bx
+	
+	pop bx
+
+	push ax
+	mov ax,0
+	cmp bp,0b000000000000010 ; if that bit is set
+
+	setne al
+
+	add bx,ax
+	sub dx,ax
+	sub dx,ax
+	
+	pop ax
+
+	call rect
+
+
+	jmp .enddraw
+
+	.fallbackdraw:
+	and bp,0b0000010
+	cmp bp,0b0000010
+	push ax
+	xor ax,ax
+	setne al
+	mov bp,ax
+	pop ax
+	
+	add ax,bp
+	sub cx,bp
+	sub cx,bp
+	
+	push ax
+	xor ax,ax
+	mov al,[endsnakeoutside]
+	mov bp,ax
+
+	pop ax
+
+	;push di
+	push bp
+
+	;push 123
+	call rect
+	pop bp
+
+	.enddraw:
+
+
+	.snakedrawcontinue: ; while
+	inc si
+	inc di
+
+	mov ax,si
+	call snakeindexmod
+	mov si,ax
+	mov bx,[SNAKE_HEAD_OFFSET]
+	cmp si,bx
+	je .snakedrawloopend
+	jmp .snakedrawloop
+	.snakedrawloopend:
+
+	ret
+
+snakeindexmod: ; put index in ax
+	cmp ax,0xffff ; if it's been decremented from 0
+	je .setlen
+	xor dx,dx ; we all hate dx
+	mov bx,[SNAKE_LENGTH]
+	div bx
+	mov ax,dx ; modulo in dx
+	jmp .return
+
+	.setlen:
+	mov ax,[SNAKE_LENGTH]
+	dec ax
+
+	.return:
 	ret
 
 snakeindexconvert: ; put index in ax
@@ -670,8 +1008,9 @@ growsnake:
 	mov cx,2
 	mul cx
 	mov bx,ax 
-	mov [SNAKE_ARRAY_START+2 + bx], GAME_WIDTH ; just moves the new position to 0,0 for now (will change later)
-	mov [SNAKE_ARRAY_START+2 + bx+1], GAME_HEIGHT ; just moves the new position to 0,0 for now (will change later)
+	mov [SNAKE_ARRAY_START+2 + bx], GAME_WIDTH
+	mov [SNAKE_ARRAY_START+2 + bx+1], GAME_HEIGHT
+	mov [endsnakeoutside],1
 
 	ret
 

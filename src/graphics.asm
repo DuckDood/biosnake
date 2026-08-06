@@ -111,6 +111,8 @@ rect: ; ax for x, bx for y, cx for width, dx for height, stack for color
 	push bp
 	mov bp,sp ; create stack frame
 
+	push di
+
 	push ax ; keep registers the same after call
 	push bx
 	push cx
@@ -134,6 +136,8 @@ rect: ; ax for x, bx for y, cx for width, dx for height, stack for color
 	pop cx
 	pop bx
 	pop ax
+
+	pop di
 
 	mov sp,bp
 	pop bp ; destroy stack frame
