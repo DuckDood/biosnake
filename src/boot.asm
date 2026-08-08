@@ -859,34 +859,14 @@ drawsnake:
 	jmp .enddraw
 
 	.frontdraw:
-	;and bp,0b000000000000010
-	and bp,0b000000000001000
-
-	push bx
-	mov bx,0
-	cmp bp,0b000000000001000 ; if that bit is set
-
-	sete bl
-
-	add ax,bx
-	sub cx,bx
-	sub cx,bx
-	
-	pop bx
-
-	push ax
-	mov ax,0
-	cmp bp,0b000000000001000 ; if that bit is set
-
-	setne al
-
-	add bx,ax
-	sub dx,ax
-	sub dx,ax
-	
-	pop ax
-
-	call rect
+	cmp [SNAKE_DIRECTION],0
+	je .straightdrawx
+	cmp [SNAKE_DIRECTION],1
+	je .straightdrawy
+	cmp [SNAKE_DIRECTION],2
+	je .straightdrawx
+	cmp [SNAKE_DIRECTION],3
+	je .straightdrawy
 
 
 	jmp .enddraw
