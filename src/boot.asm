@@ -5,7 +5,7 @@
 %define GAME_HEIGHT 20 ; max 127
 %define GAME_SCALE 8
 %define GRID_SPACING 0
-%define MOVEMENT_COUNT_THRESHOLD 15
+%define MOVEMENT_COUNT_THRESHOLD 5
 
 
 %define RANDSEED 0x0992
@@ -35,9 +35,10 @@ mov al,4 ; 2 sectors is probably fine
 ;mov ch,0x0
 xor ch,ch
 mov cl,2 ; start at sector 2
-mov dh,0 ; 
+mov dh,0
 
-mov dl,0x80
+; dl is initialized to whatever disk you are booting from
+; which it will read from
 
 int 0x13
 
@@ -481,6 +482,11 @@ drawsnake:
 
 
 	.snakedrawloop: ; do
+	mov bx,si
+	sal bx,1
+	mov ah,[SNAKE_ARRAY_START + bx] ; x position
+	cmp ah,GAME_WIDTH
+	jge .snakedrawcontinue; greater than or equal to, meaning outside the board
 
 	; code below is scary
 	; it calculates the next and previous segment relative to current segment so we can draw it thin and stuff
@@ -545,29 +551,12 @@ drawsnake:
 	sal cx,2 ; shift cx bits to the left twice
 	or ax,cx
 
-	;push ax ; now ax has the next segment offset data
 	mov bp,ax
 
 	call loadgridcoords
 	
-	cmp ax,GAME_SCALE * GAME_WIDTH
-	;je .snakedrawcontinue
 	mov cx,GAME_SCALE
 	mov dx,GAME_SCALE
-	
-	;and bp,0b00000001
-	;sub cx,bp
-	;sub cx,bp
-	;add ax,bp
-
-	;not bp
-	;and bp,0b00000001
-
-	;sub dx,bp
-	;sub dx,bp
-	;add bx,bp
-
-	;push di
 	
 	; now a ton of cmps for how to draw the snake!!
 	; so much fun writing this
@@ -575,7 +564,7 @@ drawsnake:
 	; TODO: stop
 
 	cmp di,0
-	je .fallbackdraw
+	je .frontdraw
 
 	push ax
 	xor ax,ax
@@ -583,7 +572,6 @@ drawsnake:
 	inc al
 	cmp di,ax
 	pop ax
-	;cmp di,1
 	je .backdraw
 
 	cmp bp,0x4
@@ -745,11 +733,138 @@ drawsnake:
 	jmp .enddraw
 
 	.backdraw:
-	and bp,0b000000000000010
+	;push bp
+	;and bp,0b000000000000010
+
+	;push bx
+	;mov bx,0
+	;cmp bp,0b000000000000010 ; if that bit is set
+
+	;sete bl
+
+	;add ax,bx
+	;sub cx,bx
+	;sub cx,bx
+	;
+	;pop bx
+
+	;push ax
+	;mov ax,0
+	;cmp bp,0b000000000000010 ; if that bit is set
+
+	;setne al
+
+	;add bx,ax
+	;sub dx,ax
+	;sub dx,ax
+	;
+	;pop ax
+	;pop bp
+
+	;call rect
+
+	;push ax
+	;xor ax,ax
+	;
+	;bt bp,1 ; check second to last bit
+    ;
+	;setb al; puts cf into al (basically)
+    ;
+	;mov bp,ax
+    ;
+	;pop ax
+    ;
+	;add ax,bp
+	;sub cx,bp
+	;sub cx,bp
+    ;
+	;xor bp,1 ; boolean NOT operation (!bp)
+    ;
+	;add bx,bp
+	;sub dx,bp
+	;sub dx,bp
+	;
+	;; we've thinned the snake, but now we want the tail to be slightly shorter than a regular segment
+    ;
+	;push ax
+	;xor ax,ax
+    ;
+	;bt bp,0
+	;setb al
+	;mov bp,ax
+	;pop ax
+    ;
+	;sub cx,bp
+	;add ax,bp
+    ;
+	;xor bp,1
+    ;
+	;sub cx,bp
+
+
+	; oh boy another string of cmps
+	and bp,0b0000000000000011
+
+	cmp bp,0
+	je .backdrawxright
+	cmp bp,1
+	je .backdrawxleft
+	cmp bp,2
+	je .backdrawydown
+	cmp bp,3
+	je .backdrawyup
+	jmp .backdrawend
+
+	.backdrawxleft:
+	dec cx
+
+	sub dx,2
+	inc bx
+		
+	jmp .backdrawend
+	.backdrawxright:
+	inc ax
+	dec cx
+
+	sub dx,2
+	inc bx
+
+	jmp .backdrawend
+	.backdrawyup:
+	dec dx
+
+	sub cx,2
+	inc ax
+
+	jmp .backdrawend
+	.backdrawydown:
+	inc bx
+	dec dx
+
+	sub cx,2
+	inc ax
+
+	jmp .backdrawend
+
+
+
+
+	.backdrawend:
+	push bp
+	call rect
+	pop bp
+
+
+
+	jmp .enddraw
+
+	.frontdraw:
+	;and bp,0b000000000000010
+	and bp,0b000000000001000
 
 	push bx
 	mov bx,0
-	cmp bp,0b000000000000010 ; if that bit is set
+	cmp bp,0b000000000001000 ; if that bit is set
 
 	sete bl
 
@@ -761,7 +876,7 @@ drawsnake:
 
 	push ax
 	mov ax,0
-	cmp bp,0b000000000000010 ; if that bit is set
+	cmp bp,0b000000000001000 ; if that bit is set
 
 	setne al
 
