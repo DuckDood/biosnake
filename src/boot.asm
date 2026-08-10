@@ -5,7 +5,7 @@
 %define GAME_HEIGHT 20 ; max 127
 %define GAME_SCALE 8
 %define GRID_SPACING 0
-%define MOVEMENT_COUNT_THRESHOLD 5
+%define MOVEMENT_COUNT_THRESHOLD 15
 
 
 %define RANDSEED 0x0992
@@ -153,6 +153,11 @@ main:
 	int 0x16 ; if zero flag is 0 key is down
 	;inc [SNAKE_DIRECTION]
 
+	;mov bx,[WANTED_DIRECTION] ; bl should have buffer size (for input buffering)
+
+	cmp [WANTED_DIRECTION+1],2 ; input buffered at a max of two
+	je .moveend
+
 	cmp al,'d'
 	;cmp al,'l'
 	je .keyd
@@ -180,19 +185,44 @@ main:
 	jmp .moveend
 
 		.keyd:
-			mov [WANTED_DIRECTION],0
+			
+			;mov [WANTED_DIRECTION],0
+			mov cl,[WANTED_DIRECTION+1]
+			sal cl,1
+			mov al,0
+			sal al,cl
+			or [WANTED_DIRECTION],al
+			inc [WANTED_DIRECTION+1]
 			jmp .moveend
 
 		.keyw:
-			mov [WANTED_DIRECTION],1
+			;mov [WANTED_DIRECTION],1
+			mov cl,[WANTED_DIRECTION+1]
+			sal cl,1
+			mov al,1
+			sal al,cl
+			or [WANTED_DIRECTION],al
+			inc [WANTED_DIRECTION+1]
 			jmp .moveend
 
 		.keya:
-			mov [WANTED_DIRECTION],2
+			;mov [WANTED_DIRECTION],2
+			mov cl,[WANTED_DIRECTION+1]
+			sal cl,1
+			mov al,2
+			sal al,cl
+			or [WANTED_DIRECTION],al
+			inc [WANTED_DIRECTION+1]
 			jmp .moveend
 
 		.keys:
-			mov [WANTED_DIRECTION],3
+			;mov [WANTED_DIRECTION],3
+			mov cl,[WANTED_DIRECTION+1]
+			sal cl,1
+			mov al,3
+			sal al,cl
+			or [WANTED_DIRECTION],al
+			inc [WANTED_DIRECTION+1]
 			jmp .moveend
 
 		.keye:
@@ -261,7 +291,11 @@ main:
 
 	pop [SNAKE_ARRAY_START + bx] ; current position
 
-	mov al,[WANTED_DIRECTION]
+	;mov al,[WANTED_DIRECTION]
+	mov ax,[WANTED_DIRECTION]
+	cmp ah,0
+	je .nosetdirection
+	and al,0b00000011
 	;cmp al,[SNAKE_DIRECTION]
 	sub al,[SNAKE_DIRECTION]
 	
@@ -272,7 +306,11 @@ main:
 
 	
 	mov al,[WANTED_DIRECTION]
+	and al,0b00000011
 	mov [SNAKE_DIRECTION],al
+
+	shr [WANTED_DIRECTION],2 ; remove input from from queue
+	dec [WANTED_DIRECTION+1]
 	.nosetdirection:
 
 	;mov [SNAKE_DIRECTION],al
@@ -1123,15 +1161,15 @@ killsnake: ; we can make this functoin as fancy as we want because its outside o
 initvars:
 	mov [MOVEMENT_COUNTER],0
 	
-	mov [SNAKE_HEAD_OFFSET],0
+	mov word [SNAKE_HEAD_OFFSET],0
 	
 	mov [SNAKE_ARRAY_START],0
 	mov [SNAKE_ARRAY_START+1],0
 	
 	
-	mov [SNAKE_LENGTH],1
+	mov word [SNAKE_LENGTH],1
 	mov [SNAKE_DIRECTION],0
-	mov [WANTED_DIRECTION],0
+	mov word [WANTED_DIRECTION],0
 
 	mov word [APPLE_POSITION],0
 
