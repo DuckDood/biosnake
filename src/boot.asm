@@ -5,7 +5,7 @@
 %define GAME_HEIGHT 20 ; max 127
 %define GAME_SCALE 8
 %define GRID_SPACING 0
-%define MOVEMENT_COUNT_THRESHOLD 15
+%define MOVEMENT_COUNT_THRESHOLD 3
 
 
 %define RANDSEED 0x0992
@@ -116,6 +116,9 @@ main:
 	sub cx,GRID_SPACING
 	sub dx,GRID_SPACING
 
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center grid
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
+
 	
 	; draw rect with color 15
 	push ax
@@ -156,7 +159,7 @@ main:
 	;mov bx,[WANTED_DIRECTION] ; bl should have buffer size (for input buffering)
 
 	cmp [WANTED_DIRECTION+1],2 ; input buffered at a max of two
-	je .moveend
+	jae .moveend
 
 	cmp al,'d'
 	;cmp al,'l'
@@ -464,8 +467,19 @@ main:
 	mov dx,GAME_SCALE
 
 	push 0x0c
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center apple
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
 	call rect
 	pop ax
+
+	mov ax,20
+	mov bx,20
+	mov cx,20
+	mov dx,20
+	push [WANTED_DIRECTION+1]
+	call rect
+	pop ax
+
 
 	call waitscreen ; will wait for screen to pause for a sec while the electron gun or whatever it is in an emulator resets
 	call show ; super quick copy buffer in between reset
@@ -600,6 +614,8 @@ drawsnake:
 	; so much fun writing this
 
 	; TODO: stop
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center snake
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
 
 	cmp di,0
 	je .frontdraw
