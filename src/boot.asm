@@ -1196,6 +1196,11 @@ killsnake: ; we can make this function as fancy as we want because its outside o
 	push 12
 	call rect
 	pop ax
+	call show
+	mov ah,0x86
+	mov cx,2
+	mov dx,0
+	int 15h
 
 
 	mov si,[SNAKE_HEAD_OFFSET]
@@ -1211,6 +1216,11 @@ killsnake: ; we can make this function as fancy as we want because its outside o
 	push 14
 	call rect
 	pop ax
+	call show
+	mov ah,0x86
+	mov cx,2
+	mov dx,0
+	int 15h
 
 	mov si,[SNAKE_HEAD_OFFSET]
 	call loadgridcoords
@@ -1224,6 +1234,11 @@ killsnake: ; we can make this function as fancy as we want because its outside o
 	push 12
 	call rect
 	pop ax
+	call show
+	mov ah,0x86
+	mov cx,2
+	mov dx,0
+	int 15h
 
 	mov si,[SNAKE_HEAD_OFFSET]
 	call loadgridcoords
@@ -1239,6 +1254,11 @@ killsnake: ; we can make this function as fancy as we want because its outside o
 	push 14
 	call rect
 	pop ax
+	call show
+	mov ah,0x86
+	mov cx,2
+	mov dx,0
+	int 15h
 
 	mov si,[SNAKE_HEAD_OFFSET]
 	call loadgridcoords
@@ -1255,8 +1275,13 @@ killsnake: ; we can make this function as fancy as we want because its outside o
 	inc bx
 	push 12
 	call rect
-
 	call show
+	mov ah,0x86
+	mov cx,2
+	mov dx,0
+	int 15h
+
+
 	mov ah,0
 	int 0x16
 	
