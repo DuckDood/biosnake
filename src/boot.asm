@@ -17,7 +17,9 @@
 %define SNAKE_LENGTH 0x0998 ; 2 bytes
 
 %define WANTED_DIRECTION 0x099A; where the user wants to go before we actually change the direction (i inserted this into here because i had some unused variables, but i might want to turn it into a queue with the extra byte)
-%define SNAKE_HEAD_OFFSET 0x099C ; two bytes (0x099C and 0x099E)
+%define SNAKE_HEAD_OFFSET 0x099C ; two bytes (0x099C and 0x099D)
+
+%define SNAKE_BODY_COLOR 0x099E ; and 0x099F because its easier to align things to 16 bytes
 
 %define SNAKE_ARRAY_START 0x1000 ; arranged in x,y,x,y order
 %define SNAKE_MAX_LEN GAME_WIDTH*GAME_HEIGHT
@@ -41,6 +43,10 @@ mov dh,0
 ; which it will read from
 
 int 0x13
+
+
+
+restart:
 
 mov ax,	0x0000
 mov ds,	ax
@@ -295,7 +301,9 @@ main:
 	pop [SNAKE_ARRAY_START + bx] ; current position
 
 	;mov al,[WANTED_DIRECTION]
-	mov ax,[WANTED_DIRECTION]
+	;mov ax,[WANTED_DIRECTION]
+	mov al,[WANTED_DIRECTION]
+	mov ah,[WANTED_DIRECTION+1]
 	cmp ah,0
 	je .nosetdirection
 	and al,0b00000011
@@ -303,15 +311,19 @@ main:
 	sub al,[SNAKE_DIRECTION]
 	
 	cmp al,2
-	je .nosetdirection
+	;je .nosetdirection
+	je .nosetdirdec
 	cmp al,-2
-	je .nosetdirection
+	;je .nosetdirection
+	je .nosetdirdec
 
 	
 	mov al,[WANTED_DIRECTION]
 	and al,0b00000011
 	mov [SNAKE_DIRECTION],al
 
+	;.nosetdirection:
+	.nosetdirdec:
 	shr [WANTED_DIRECTION],2 ; remove input from from queue
 	dec [WANTED_DIRECTION+1]
 	.nosetdirection:
@@ -469,14 +481,6 @@ main:
 	push 0x0c
 	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center apple
 	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
-	call rect
-	pop ax
-
-	mov ax,20
-	mov bx,20
-	mov cx,20
-	mov dx,20
-	push [WANTED_DIRECTION+1]
 	call rect
 	pop ax
 
@@ -669,7 +673,7 @@ drawsnake:
 	.straightdrawx:
 	sub dx,2
 	inc bx
-	push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 	jmp .enddraw
@@ -677,7 +681,8 @@ drawsnake:
 	.straightdrawy:
 	sub cx,2
 	inc ax
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 	jmp .enddraw
@@ -687,7 +692,8 @@ drawsnake:
 	inc ax
 
 	dec dx
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 	inc dx
@@ -699,7 +705,8 @@ drawsnake:
 	inc bx
 	dec cx
 
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 	jmp .enddraw
@@ -711,7 +718,8 @@ drawsnake:
 	inc bx
 	dec dx
 
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 
@@ -725,7 +733,8 @@ drawsnake:
 	inc bx
 	dec cx
 
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 	jmp .enddraw
@@ -737,7 +746,8 @@ drawsnake:
 	dec dx
 
 
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 
@@ -752,7 +762,8 @@ drawsnake:
 
 	inc ax
 	dec cx
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 	jmp .enddraw
@@ -765,7 +776,8 @@ drawsnake:
 	dec dx
 
 
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 
@@ -781,7 +793,8 @@ drawsnake:
 
 	inc ax
 	dec cx
-	push di
+	;push di
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 	jmp .enddraw
@@ -904,7 +917,8 @@ drawsnake:
 
 
 	.backdrawend:
-	push bp
+	;push bp
+	push word [SNAKE_BODY_COLOR]
 	call rect
 	pop bp
 
@@ -946,7 +960,8 @@ drawsnake:
 	pop ax
 
 	;push di
-	push bp
+	;push bp
+	push word [SNAKE_BODY_COLOR]
 
 	;push 123
 	call rect
@@ -968,7 +983,7 @@ drawsnake:
 	jmp .snakedrawloop
 	.snakedrawloopend:
 
-	ret
+	;ret
 
 snakeindexmod: ; put index in ax
 	cmp ax,0xffff ; if it's been decremented from 0
@@ -1163,16 +1178,90 @@ growsnake:
 
 	ret
 
-killsnake: ; we can make this functoin as fancy as we want because its outside of the 512 byte limit
-	mov ax,0
-	mov bx,0
-	mov cx,50
-	mov dx,50
+killsnake: ; we can make this function as fancy as we want because its outside of the 512 byte limit
+	call drawsnake
+	mov bx, [SNAKE_HEAD_OFFSET]
+	sal bx,1
+	inc [SNAKE_ARRAY_START + bx]
+
+	mov si,[SNAKE_HEAD_OFFSET]
+	call loadgridcoords
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center snake
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
+	sub ax, GAME_SCALE
+	mov cx,12
+	mov dx,12
+	dec ax
+	dec bx
+	push 12
+	call rect
+	pop ax
+
+
+	mov si,[SNAKE_HEAD_OFFSET]
+	call loadgridcoords
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center snake
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
+	sub ax, GAME_SCALE
+	
+	;mov ax,0
+	;mov bx,0
+	mov cx,10
+	mov dx,10
 	push 14
 	call rect
-	call show
 	pop ax
-	jmp $ ; fun way to kill the player
+
+	mov si,[SNAKE_HEAD_OFFSET]
+	call loadgridcoords
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center snake
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
+	sub ax, GAME_SCALE
+	mov cx,8
+	mov dx,8
+	inc ax
+	inc bx
+	push 12
+	call rect
+	pop ax
+
+	mov si,[SNAKE_HEAD_OFFSET]
+	call loadgridcoords
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center snake
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
+	sub ax, GAME_SCALE
+	mov cx,6
+	mov dx,6
+	inc ax
+	inc bx
+	inc ax
+	inc bx
+	push 14
+	call rect
+	pop ax
+
+	mov si,[SNAKE_HEAD_OFFSET]
+	call loadgridcoords
+	add ax, 320/2 - GAME_WIDTH/2 *  GAME_SCALE - GAME_SCALE/2 ; center snake
+	add bx, 200/2 - GAME_HEIGHT/2 * GAME_SCALE - GAME_SCALE/2
+	sub ax, GAME_SCALE
+	mov cx,4
+	mov dx,4
+	inc ax
+	inc bx
+	inc ax
+	inc bx
+	inc ax
+	inc bx
+	push 12
+	call rect
+
+	call show
+	mov ah,0
+	int 0x16
+	
+	jmp restart ; this will reset the stack pointer and stuff so we dont even need to ret or whatever
+	;jmp $ ; fun way to kill the player
 	
 initvars:
 	mov [MOVEMENT_COUNTER],0
@@ -1188,6 +1277,8 @@ initvars:
 	mov word [WANTED_DIRECTION],0
 
 	mov word [APPLE_POSITION],0
+
+	mov word [SNAKE_BODY_COLOR],0
 
 	call randomizeapple
 
