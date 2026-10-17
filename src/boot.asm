@@ -1305,6 +1305,16 @@ initvars:
 
 	mov word [SNAKE_BODY_COLOR],0
 
+	push cx
+	push dx
+	push ax
+	mov al,0
+	int 0x1a
+	mov [RANDSEED],dx
+	pop ax
+	pop dx
+	pop cx
+
 	call randomizeapple
 
 	ret
